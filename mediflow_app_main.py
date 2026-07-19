@@ -99,7 +99,7 @@ async def root():
 
 
 # Import and include routers
-from app.routers import auth, medications, appointments, documents, summaries
+from app.routers import auth, medications, appointments, documents, summaries, drug_interactions
 
 
 @app.on_event("startup")
