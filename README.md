@@ -426,6 +426,8 @@ See `docs/DEPLOYMENT.md` for:
 - **DEPLOYMENT.md** — Production deployment guide
 - **DEMO.md** — Hackathon demo script (5 minutes)
 - **CTO_STRATEGY.md** — Strategic critiques & implementation
+- **MONETIZATION_STRATEGY.md** — Revenue model, pricing tiers, unit economics, market sizing, 5-year projections
+
 
 ---
 
