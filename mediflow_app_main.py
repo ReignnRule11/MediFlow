@@ -120,6 +120,7 @@ app.include_router(medications.router)
 app.include_router(appointments.router)
 app.include_router(documents.router)
 app.include_router(summaries.router)
+app.include_router(drug_interactions.router)
 
 
 if __name__ == "__main__":
