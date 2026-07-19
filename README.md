@@ -464,6 +464,48 @@ See `docs/DEPLOYMENT.md` for:
 
 ---
 
+## 💰 Monetization Strategy
+
+MediFlow employs a **diversified revenue model** across three customer segments:
+
+### Business Model Overview
+
+| Segment | Revenue Model | Year 1 Target | Year 5 Projection |
+|---------|---|---|---|
+| **B2C (Patients)** | Freemium + Premium ($9.99/mo) | $2.04M | $26.4M |
+| **B2B2C (Hospitals)** | Annual license ($150K-$400K) | $3.6M | $35.0M |
+| **B2B (Pharma/Data)** | API + data services | $0.76M | $12.0M |
+| **Total** | — | **$6.4M** | **$73.4M** |
+
+### Key Metrics
+
+- **B2C:** 70K free users → 8K premium subscribers (11.4% conversion) by Year 1
+- **B2B2C:** 6 hospital contracts by Year 1; 85+ by Year 5
+- **Unit Economics:** LTV:CAC ratios of 8-44x across all segments
+- **Profitability:** EBITDA-positive by Month 8 of Year 1
+- **Market TAM:** $157.6B addressable (B2C $6B + B2B2C $150B + B2B $1.65B)
+
+### Revenue Highlights
+
+**B2C (Freemium SaaS):**
+- Target: Chronic disease patients (diabetes, cardiac, hypertension)
+- Premium tier includes: Unlimited drug interaction checks, AI explanations, medication reminders, caregiver accounts
+
+**B2B2C (Hospital Licensing):**
+- Hospital ROI: 43x (average $6.5M in cost savings per $150K annual license)
+- Benefits: Drug error prevention, doctor efficiency (+30 min/patient), appointment compliance
+- Adoption: 60% of eligible patients using MediFlow within 6 months
+
+**B2B (Enterprise Data Services):**
+- Pharma R&D: $50K/year for clinical trial drug interaction intelligence
+- PBM/Insurance: $70K/year for de-identified patient adherence data
+- Telehealth: $20K-$40K/year for white-label integration
+
+**→ See MONETIZATION_STRATEGY.md for detailed unit economics, pricing justification, market sizing, and 5-year financial projections.**
+
+---
+
+
 ## 👥 Team Assignments
 
 | Role | Files | Task |
