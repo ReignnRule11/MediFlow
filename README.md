@@ -547,7 +547,7 @@ MediFlow employs a **diversified revenue model** across three customer segments:
 ---
 
 ## 📞 Support
-
+call: 
 **Questions?**
 - Check `docs/` folder
 - Review test examples in `tests/`
@@ -562,7 +562,7 @@ MediFlow employs a **diversified revenue model** across three customer segments:
 
 ## 📄 License
 
-This project is built for the hackathon. All code is yours to use and modify.
+This project is built for scaling.
 
 ---
 
