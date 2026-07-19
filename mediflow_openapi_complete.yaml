@@ -1,0 +1,2581 @@
+openapi: 3.0.0
+info:
+  title: MediFlow Healthcare API
+  description: |
+    Enterprise-grade REST API for healthcare platform with patient management, 
+    document OCR, medication safety, appointment scheduling, and AI-powered insights.
+    
+    ## Authentication
+    All endpoints (except auth) require JWT Bearer token in Authorization header.
+    
+    ## Rate Limiting
+    - Authenticated: 1,000 requests/hour
+    - Per endpoint limits vary (see headers)
+    
+    ## Error Format
+    All errors follow standard format with code, message, and details.
+  version: 1.0.0
+  contact:
+    name: MediFlow Support
+    email: api-support@mediflow.com
+    url: https://support.mediflow.com
+  license:
+    name: Proprietary
+    url: https://mediflow.com/license
+
+servers:
+  - url: https://api.mediflow.com/api
+    description: Production environment
+  - url: https://staging-api.mediflow.com/api
+    description: Staging environment
+  - url: http://localhost:8000/api
+    description: Local development
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login endpoint
+
+  schemas:
+    # ==================== Shared Schemas ====================
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+              enum: 
+                - VALIDATION_ERROR
+                - AUTHENTICATION_ERROR
+                - AUTHORIZATION_ERROR
+                - NOT_FOUND
+                - CONFLICT
+                - RATE_LIMIT_EXCEEDED
+                - INTERNAL_SERVER_ERROR
+            message:
+              type: string
+              example: Invalid request parameters
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  error:
+                    type: string
+                  value:
+                    type: string
+            request_id:
+              type: string
+              format: uuid
+            timestamp:
+              type: string
+              format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+        total:
+          type: integer
+        has_more:
+          type: boolean
+        next_offset:
+          type: integer
+
+    # ==================== Authentication Schemas ====================
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: patient@example.com
+        password:
+          type: string
+          format: password
+          minLength: 12
+          example: SecurePass123!
+        mfa_code:
+          type: string
+          pattern: '^\d{6}$'
+          description: Optional MFA code if enabled
+
+    LoginResponse:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyOjEyMyIsImV4cCI6MTcwNTQyMDgwMH0.signature
+        refresh_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyOjEyMyIsImV4cCI6MTcwNTk2MDgwMH0.signature
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          example: 3600
+          description: Access token validity in seconds
+        user:
+          type: object
+          properties:
+            user_id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            role:
+              type: string
+              enum: [PATIENT, DOCTOR, ADMIN, CAREGIVER, HOSPITAL_STAFF]
+            full_name:
+              type: string
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    RefreshTokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - full_name
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          example: patient@example.com
+        password:
+          type: string
+          format: password
+          minLength: 12
+          description: Must contain uppercase, lowercase, number, and special character
+          example: SecurePass123!
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: John Doe
+        date_of_birth:
+          type: string
+          format: date
+          example: 1965-05-15
+        phone:
+          type: string
+          pattern: '^\+?[1-9]\d{1,14}$'
+          description: E.164 format
+          example: +14155550100
+        role:
+          type: string
+          enum: [PATIENT, DOCTOR, HOSPITAL_STAFF]
+
+    RegisterResponse:
+      type: object
+      required:
+        - user_id
+        - email
+        - role
+        - created_at
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        email_verification_sent:
+          type: boolean
+        message:
+          type: string
+
+    # ==================== Patient Schemas ====================
+    PatientProfile:
+      type: object
+      required:
+        - patient_id
+        - user_id
+        - email
+        - full_name
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        age:
+          type: integer
+          minimum: 0
+          maximum: 150
+        phone:
+          type: string
+        gender:
+          type: string
+          enum: [M, F, O, Prefer not to say]
+        blood_type:
+          type: string
+          enum: [O+, O-, A+, A-, B+, B-, AB+, AB-]
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip_code:
+          type: string
+        country:
+          type: string
+          default: USA
+        emergency_contact:
+          type: object
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            relationship:
+              type: string
+        medical_profile:
+          type: object
+          properties:
+            allergies:
+              type: array
+              items:
+                type: object
+                properties:
+                  allergen:
+                    type: string
+                  severity:
+                    type: string
+                    enum: [MILD, MODERATE, SEVERE]
+                  reaction:
+                    type: string
+            chronic_conditions:
+              type: array
+              items:
+                type: string
+            surgical_history:
+              type: array
+              items:
+                type: object
+                properties:
+                  procedure:
+                    type: string
+                  date:
+                    type: string
+                    format: date
+        insurance:
+          type: object
+          properties:
+            provider:
+              type: string
+            policy_number:
+              type: string
+            group_number:
+              type: string
+        preferences:
+          type: object
+          properties:
+            preferred_language:
+              type: string
+              enum: [en, es, fr, zh, pt]
+            communication_preference:
+              type: string
+              enum: [EMAIL, SMS, PHONE, IN_APP]
+            preferred_pharmacy_id:
+              type: string
+              format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PatientUpdateRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 255
+        phone:
+          type: string
+          pattern: '^\+?[1-9]\d{1,14}$'
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip_code:
+          type: string
+        emergency_contact:
+          type: object
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            relationship:
+              type: string
+        preferences:
+          type: object
+          properties:
+            preferred_language:
+              type: string
+            communication_preference:
+              type: string
+            preferred_pharmacy_id:
+              type: string
+              format: uuid
+
+    # ==================== Medication Schemas ====================
+    Medication:
+      type: object
+      required:
+        - medication_id
+        - drug_name
+        - strength
+      properties:
+        medication_id:
+          type: string
+          format: uuid
+        drug_name:
+          type: string
+          example: Lisinopril
+        rxcui:
+          type: string
+          example: "10308199"
+        strength:
+          type: string
+          example: 10mg
+        dosage_form:
+          type: string
+          enum: [Tablet, Capsule, Liquid, Injection, Cream, Patch, Powder]
+        route_of_administration:
+          type: string
+          enum: [ORAL, IV, IM, SC, TOPICAL, INHALATION]
+        drug_class:
+          type: string
+          example: ACE_INHIBITOR
+        indications:
+          type: array
+          items:
+            type: string
+        contraindications:
+          type: array
+          items:
+            type: string
+        side_effects:
+          type: array
+          items:
+            type: object
+            properties:
+              effect:
+                type: string
+              frequency:
+                type: string
+              severity:
+                type: string
+              manageable:
+                type: boolean
+        normal_dose_range:
+          type: object
+          properties:
+            min:
+              type: string
+            max:
+              type: string
+            frequency:
+              type: string
+        manufacturer:
+          type: string
+        approval_status:
+          type: string
+          enum: [FDA_APPROVED, OTC, GENERIC]
+
+    PatientMedication:
+      type: object
+      required:
+        - medication_id
+        - patient_medication_id
+        - drug_name
+        - strength
+        - frequency
+        - status
+      properties:
+        medication_id:
+          type: string
+          format: uuid
+        patient_medication_id:
+          type: string
+          format: uuid
+        drug_name:
+          type: string
+        strength:
+          type: string
+        dosage_form:
+          type: string
+        frequency:
+          type: string
+          enum: [ONCE_DAILY, TWICE_DAILY, THREE_TIMES_DAILY, FOUR_TIMES_DAILY, AS_NEEDED]
+        route_of_administration:
+          type: string
+        quantity:
+          type: integer
+        refills_allowed:
+          type: integer
+        refills_remaining:
+          type: integer
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, DISCONTINUED, PAUSED, COMPLETED]
+        indication:
+          type: string
+        prescribed_by:
+          type: string
+        adherence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.92
+        last_refill_date:
+          type: string
+          format: date
+        pharmacy:
+          type: object
+          properties:
+            pharmacy_id:
+              type: string
+              format: uuid
+            pharmacy_name:
+              type: string
+
+    MedicationAddRequest:
+      type: object
+      required:
+        - drug_name
+        - strength
+        - frequency
+        - start_date
+      properties:
+        drug_name:
+          type: string
+          example: Metoprolol Tartrate
+        strength:
+          type: string
+          example: 50mg
+        frequency:
+          type: string
+          enum: [ONCE_DAILY, TWICE_DAILY, THREE_TIMES_DAILY, FOUR_TIMES_DAILY, AS_NEEDED]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        indication:
+          type: string
+          example: Hypertension
+        prescribed_by_doctor_id:
+          type: string
+          format: uuid
+        dosage_form:
+          type: string
+          enum: [Tablet, Capsule, Liquid, Injection]
+        route_of_administration:
+          type: string
+
+    InteractionCheckRequest:
+      type: object
+      required:
+        - patient_id
+        - primary_drug
+        - query_medication
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        primary_drug:
+          type: string
+          example: Lisinopril
+        query_medication:
+          type: string
+          example: Potassium supplement
+        include_supplements:
+          type: boolean
+          default: true
+        include_otc:
+          type: boolean
+          default: true
+
+    DrugInteraction:
+      type: object
+      properties:
+        interaction_id:
+          type: string
+          format: uuid
+        drug1:
+          type: string
+        drug2:
+          type: string
+        severity:
+          type: string
+          enum: [MINOR, MODERATE, SEVERE]
+        mechanism:
+          type: string
+        clinical_effect:
+          type: string
+        management:
+          type: string
+        recommendation:
+          type: string
+        evidence_level:
+          type: string
+          enum: [A, B, C]
+
+    InteractionCheckResponse:
+      type: object
+      properties:
+        interaction_check:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [NO_INTERACTION, WARNING, CONTRAINDICATED]
+            severity:
+              type: string
+              enum: [MINOR, MODERATE, SEVERE]
+            interactions_found:
+              type: array
+              items:
+                $ref: '#/components/schemas/DrugInteraction'
+        patient_confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        patient_education:
+          type: object
+          properties:
+            simple_explanation:
+              type: string
+            warning_signs:
+              type: array
+              items:
+                type: string
+            action_items:
+              type: array
+              items:
+                type: string
+
+    # ==================== Appointment Schemas ====================
+    Appointment:
+      type: object
+      required:
+        - appointment_id
+        - patient_id
+        - doctor_id
+        - appointment_date
+        - appointment_time
+        - status
+      properties:
+        appointment_id:
+          type: string
+          format: uuid
+        appointment_number:
+          type: string
+          example: APT2024010015
+        patient_id:
+          type: string
+          format: uuid
+        patient_name:
+          type: string
+        doctor_id:
+          type: string
+          format: uuid
+        doctor_name:
+          type: string
+        specialty:
+          type: string
+        hospital_id:
+          type: string
+          format: uuid
+        hospital_name:
+          type: string
+        appointment_date:
+          type: string
+          format: date
+        appointment_time:
+          type: string
+          format: time
+          example: "14:00"
+        end_time:
+          type: string
+          format: time
+        duration_minutes:
+          type: integer
+          default: 30
+        appointment_type:
+          type: string
+          example: Follow-up consultation
+        chief_complaint:
+          type: string
+        status:
+          type: string
+          enum: [SCHEDULED, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW]
+        confirmation_status:
+          type: string
+          enum: [PENDING, CONFIRMED, DECLINED]
+        reminder_sent:
+          type: boolean
+        next_reminder_at:
+          type: string
+          format: date-time
+          nullable: true
+        location:
+          type: object
+          properties:
+            address:
+              type: string
+            room:
+              type: string
+        cancellation_reason:
+          type: string
+          nullable: true
+        notes:
+          type: string
+
+    AppointmentCreateRequest:
+      type: object
+      required:
+        - patient_id
+        - doctor_id
+        - appointment_date
+        - appointment_time
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        appointment_date:
+          type: string
+          format: date
+        appointment_time:
+          type: string
+          format: time
+          example: "14:00"
+        duration_minutes:
+          type: integer
+          default: 30
+        appointment_type:
+          type: string
+        chief_complaint:
+          type: string
+        preferred_location:
+          type: string
+          enum: [In-person, Virtual, Phone]
+        notes:
+          type: string
+
+    AppointmentUpdateRequest:
+      type: object
+      properties:
+        appointment_date:
+          type: string
+          format: date
+        appointment_time:
+          type: string
+          format: time
+        notes:
+          type: string
+
+    AppointmentCancelRequest:
+      type: object
+      required:
+        - cancellation_reason
+      properties:
+        cancellation_reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    # ==================== Document Schemas ====================
+    DocumentUploadResponse:
+      type: object
+      required:
+        - document_id
+        - upload_id
+        - status
+      properties:
+        document_id:
+          type: string
+          format: uuid
+        upload_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [QUEUED, PROCESSING, COMPLETED, FAILED]
+        message:
+          type: string
+        estimated_processing_time_seconds:
+          type: integer
+        webhook_url:
+          type: string
+          format: uri
+        polling_url:
+          type: string
+          format: uri
+
+    DocumentStatus:
+      type: object
+      required:
+        - document_id
+        - status
+      properties:
+        document_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [QUEUED, PROCESSING, EXTRACTION_COMPLETE, VALIDATION_FAILED, COMPLETED, FAILED]
+        progress_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        stage:
+          type: string
+        processing_time_ms:
+          type: integer
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        extracted_data:
+          type: object
+          properties:
+            medications:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  strength:
+                    type: string
+                  frequency:
+                    type: string
+                  quantity:
+                    type: integer
+                  refills:
+                    type: integer
+                  confidence:
+                    type: number
+            doctor_name:
+              type: string
+            prescription_date:
+              type: string
+              format: date
+            pharmacy:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+        raw_ocr_text:
+          type: string
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    DocumentListResponse:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              document_id:
+                type: string
+                format: uuid
+              document_type:
+                type: string
+                enum: [PRESCRIPTION, LAB_REPORT, DISCHARGE_SUMMARY, IMAGING, PROCEDURE_NOTE]
+              file_name:
+                type: string
+              file_size_bytes:
+                type: integer
+              upload_date:
+                type: string
+                format: date-time
+              processing_status:
+                type: string
+              confidence_score:
+                type: number
+              extracted_summary:
+                type: object
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # ==================== Timeline Schemas ====================
+    TimelineEvent:
+      type: object
+      required:
+        - event_id
+        - patient_id
+        - event_type
+        - event_date
+        - title
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum: [MEDICATION, LAB_RESULT, APPOINTMENT, VITAL, NOTE, PROCEDURE]
+        event_date:
+          type: string
+          format: date
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [INFO, LOW, MEDIUM, HIGH, CRITICAL]
+        is_abnormal:
+          type: boolean
+        source:
+          type: string
+        source_id:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties: true
+        related_events:
+          type: array
+          items:
+            type: string
+            format: uuid
+        clinical_insight:
+          type: string
+        trend_indicator:
+          type: string
+          enum: [UP, DOWN, STABLE]
+        created_at:
+          type: string
+          format: date-time
+
+    TimelineResponse:
+      type: object
+      properties:
+        timeline_events:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineEvent'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # ==================== Notification Schemas ====================
+    Notification:
+      type: object
+      required:
+        - notification_id
+        - type
+        - title
+        - message
+      properties:
+        notification_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [reminder, alert, update, info]
+        title:
+          type: string
+        message:
+          type: string
+        channel:
+          type: string
+          enum: [IN_APP, EMAIL, SMS, PUSH]
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        action_url:
+          type: string
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    NotificationListResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        total_unread:
+          type: integer
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # ==================== Analytics Schemas ====================
+    HealthSummary:
+      type: object
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        summary_period:
+          type: string
+          enum: [LAST_7_DAYS, LAST_30_DAYS, LAST_90_DAYS, LAST_YEAR]
+        generated_at:
+          type: string
+          format: date-time
+        key_metrics:
+          type: object
+          properties:
+            medication_adherence:
+              type: number
+              minimum: 0
+              maximum: 1
+            appointment_attendance:
+              type: number
+              minimum: 0
+              maximum: 1
+            condition_stability:
+              type: number
+              minimum: 0
+              maximum: 1
+        risk_profile:
+          type: object
+          properties:
+            readmission_risk:
+              type: number
+              minimum: 0
+              maximum: 1
+            risk_level:
+              type: string
+              enum: [LOW, MEDIUM, HIGH]
+            risk_factors:
+              type: array
+              items:
+                type: string
+        trends:
+          type: object
+          properties:
+            blood_pressure_trend:
+              type: string
+              enum: [UP, DOWN, STABLE]
+            weight_trend:
+              type: string
+              enum: [UP, DOWN, STABLE]
+            lab_trend:
+              type: string
+              enum: [IMPROVING, DECLINING, STABLE]
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    # ==================== Doctor Schemas ====================
+    DoctorProfile:
+      type: object
+      required:
+        - doctor_id
+        - user_id
+        - full_name
+        - license_number
+        - specialty
+      properties:
+        doctor_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        specialty:
+          type: string
+        sub_specializations:
+          type: array
+          items:
+            type: string
+        license_number:
+          type: string
+        license_state:
+          type: string
+        license_verified:
+          type: boolean
+        npi_number:
+          type: string
+        medical_school:
+          type: string
+        graduation_year:
+          type: integer
+        board_certifications:
+          type: array
+          items:
+            type: object
+            properties:
+              certification:
+                type: string
+              issuing_body:
+                type: string
+              year_obtained:
+                type: integer
+        hospital_id:
+          type: string
+          format: uuid
+        hospital_name:
+          type: string
+        practice_phone:
+          type: string
+        available_hours:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              start:
+                type: string
+                format: time
+              end:
+                type: string
+                format: time
+        total_patients:
+          type: integer
+        average_rating:
+          type: number
+          minimum: 0
+          maximum: 5
+        total_reviews:
+          type: integer
+        is_accepting_patients:
+          type: boolean
+
+    DoctorPatient:
+      type: object
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        patient_name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+        chronic_conditions:
+          type: array
+          items:
+            type: string
+        last_visit:
+          type: string
+          format: date
+        next_appointment:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        risk_level:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+
+    PreConsultationSummary:
+      type: object
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        summary_generated_at:
+          type: string
+          format: date-time
+        validity_until:
+          type: string
+          format: date-time
+        chief_complaint:
+          type: string
+        active_medications:
+          type: array
+          items:
+            type: object
+            properties:
+              medication:
+                type: string
+              dose:
+                type: string
+              frequency:
+                type: string
+              adherence:
+                type: number
+        recent_labs:
+          type: array
+          items:
+            type: object
+            properties:
+              test:
+                type: string
+              value:
+                type: string
+              date:
+                type: string
+                format: date
+              status:
+                type: string
+                enum: [NORMAL, ABNORMAL, CRITICAL]
+        allergies:
+          type: array
+          items:
+            type: object
+            properties:
+              allergen:
+                type: string
+              severity:
+                type: string
+        clinical_alerts:
+          type: array
+          items:
+            type: string
+        recent_diagnoses:
+          type: array
+          items:
+            type: string
+        recommended_tests:
+          type: array
+          items:
+            type: string
+        clinical_notes:
+          type: string
+
+  responses:
+    UnauthorizedError:
+      description: Authentication credentials missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ForbiddenError:
+      description: User does not have permission to access this resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ConflictError:
+      description: Resource conflict (e.g., duplicate email)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    RateLimitError:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ==================== AUTHENTICATION ENDPOINTS ====================
+  /auth/register:
+    post:
+      summary: Register new user account
+      operationId: registerUser
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              patient:
+                value:
+                  email: patient@example.com
+                  password: SecurePass123!
+                  full_name: John Doe
+                  date_of_birth: "1965-05-15"
+                  phone: "+14155550100"
+                  role: PATIENT
+              doctor:
+                value:
+                  email: doctor@example.com
+                  password: SecurePass123!
+                  full_name: Dr. Sarah Johnson
+                  phone: "+14155551000"
+                  role: DOCTOR
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      summary: Authenticate user and receive JWT tokens
+      operationId: loginUser
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              basic:
+                value:
+                  email: patient@example.com
+                  password: SecurePass123!
+              with_mfa:
+                value:
+                  email: patient@example.com
+                  password: SecurePass123!
+                  mfa_code: "123456"
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "429":
+          $ref: '#/components/responses/RateLimitError'
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      operationId: refreshToken
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        "200":
+          description: Access token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/logout:
+    post:
+      summary: Invalidate current session
+      operationId: logoutUser
+      tags:
+        - Authentication
+      responses:
+        "204":
+          description: Successfully logged out
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # ==================== PATIENT ENDPOINTS ====================
+  /patients/{patient_id}:
+    get:
+      summary: Get patient profile
+      operationId: getPatientProfile
+      tags:
+        - Patients
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        - name: include_history
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: include_timeline
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Patient profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientProfile'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          $ref: '#/components/responses/ForbiddenError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      summary: Update patient profile
+      operationId: updatePatientProfile
+      tags:
+        - Patients
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientUpdateRequest'
+            example:
+              full_name: John Doe
+              phone: "+14155550100"
+              address: "123 Main St"
+              city: "San Francisco"
+              state: "CA"
+              zip_code: "94105"
+              preferences:
+                preferred_language: en
+                communication_preference: EMAIL
+      responses:
+        "200":
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patient_id:
+                    type: string
+                    format: uuid
+                  updated_at:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /patients/{patient_id}/allergies:
+    get:
+      summary: Get patient allergies
+      operationId: getPatientAllergies
+      tags:
+        - Patients
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Allergies retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allergies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        allergen_id:
+                          type: string
+                          format: uuid
+                        allergen:
+                          type: string
+                        severity:
+                          type: string
+                          enum: [MILD, MODERATE, SEVERE]
+                        reaction:
+                          type: string
+                        reported_date:
+                          type: string
+                          format: date
+                        verified:
+                          type: boolean
+                  last_updated:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+    post:
+      summary: Add allergy to patient
+      operationId: addPatientAllergy
+      tags:
+        - Patients
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - allergen
+                - severity
+              properties:
+                allergen:
+                  type: string
+                  example: Penicillin
+                severity:
+                  type: string
+                  enum: [MILD, MODERATE, SEVERE]
+                reaction:
+                  type: string
+                  example: Anaphylaxis
+                notes:
+                  type: string
+      responses:
+        "201":
+          description: Allergy added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allergen_id:
+                    type: string
+                    format: uuid
+                  message:
+                    type: string
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /patients/{patient_id}/conditions:
+    get:
+      summary: Get patient chronic conditions
+      operationId: getPatientConditions
+      tags:
+        - Patients
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Conditions retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chronic_conditions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        condition_id:
+                          type: string
+                          format: uuid
+                        condition_name:
+                          type: string
+                        icd10_code:
+                          type: string
+                        diagnosis_date:
+                          type: string
+                          format: date
+                        status:
+                          type: string
+                          enum: [ACTIVE, INACTIVE, RESOLVED]
+                        severity:
+                          type: string
+                        current_management:
+                          type: string
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /patients/{patient_id}/medications:
+    get:
+      summary: Get patient medications
+      operationId: getPatientMedications
+      tags:
+        - Medications
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: include_inactive
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: include_history
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Medications retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  medications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatientMedication'
+                  total_active:
+                    type: integer
+                  total_all:
+                    type: integer
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+    post:
+      summary: Add medication to patient
+      operationId: addPatientMedication
+      tags:
+        - Medications
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationAddRequest'
+      responses:
+        "201":
+          description: Medication added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patient_medication_id:
+                    type: string
+                    format: uuid
+                  medication_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  message:
+                    type: string
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /medications/{medication_id}:
+    get:
+      summary: Get medication details
+      operationId: getMedicationDetails
+      tags:
+        - Medications
+      parameters:
+        - name: medication_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Medication details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medication'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /medications/check-interactions:
+    post:
+      summary: Check for drug interactions
+      operationId: checkDrugInteractions
+      tags:
+        - Medications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InteractionCheckRequest'
+            example:
+              patient_id: 550e8400-e29b-41d4-a716-446655440000
+              primary_drug: Lisinopril
+              query_medication: Potassium supplement
+              include_supplements: true
+              include_otc: true
+      responses:
+        "200":
+          description: Interaction check complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionCheckResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          description: Medication not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== APPOINTMENT ENDPOINTS ====================
+  /appointments:
+    get:
+      summary: Get appointments
+      operationId: getAppointments
+      tags:
+        - Appointments
+      parameters:
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: doctor_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [SCHEDULED, COMPLETED, CANCELLED]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Appointments retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  appointments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Appointment'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      summary: Schedule new appointment
+      operationId: createAppointment
+      tags:
+        - Appointments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreateRequest'
+            example:
+              patient_id: 550e8400-e29b-41d4-a716-446655440000
+              doctor_id: 550e8400-e29b-41d4-a716-446655440001
+              appointment_date: "2024-01-20"
+              appointment_time: "14:00"
+              duration_minutes: 30
+              appointment_type: Follow-up consultation
+              chief_complaint: Blood pressure check
+              preferred_location: In-person
+      responses:
+        "201":
+          description: Appointment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  appointment_id:
+                    type: string
+                    format: uuid
+                  appointment_number:
+                    type: string
+                  status:
+                    type: string
+                  confirmation_required:
+                    type: boolean
+                  confirmation_sent_at:
+                    type: string
+                    format: date-time
+                  reminder_schedule:
+                    type: object
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "409":
+          description: Time slot unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /appointments/{appointment_id}:
+    put:
+      summary: Update appointment (reschedule)
+      operationId: updateAppointment
+      tags:
+        - Appointments
+      parameters:
+        - name: appointment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentUpdateRequest'
+      responses:
+        "200":
+          description: Appointment updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  appointment_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  new_appointment_date:
+                    type: string
+                    format: date
+                  new_appointment_time:
+                    type: string
+                  message:
+                    type: string
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Cancel appointment
+      operationId: cancelAppointment
+      tags:
+        - Appointments
+      parameters:
+        - name: appointment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCancelRequest'
+      responses:
+        "200":
+          description: Appointment cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  appointment_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  cancellation_time:
+                    type: string
+                    format: date-time
+                  refund_eligible:
+                    type: boolean
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  # ==================== DOCUMENT ENDPOINTS ====================
+  /documents/upload:
+    post:
+      summary: Upload medical document for OCR processing
+      operationId: uploadDocument
+      tags:
+        - Documents
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - document_type
+                - patient_id
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF or image file (max 50MB)
+                document_type:
+                  type: string
+                  enum: [PRESCRIPTION, LAB_REPORT, DISCHARGE_SUMMARY, IMAGING, PROCEDURE_NOTE]
+                patient_id:
+                  type: string
+                  format: uuid
+                description:
+                  type: string
+      responses:
+        "202":
+          description: Document queued for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentUploadResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "413":
+          description: File exceeds maximum size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "415":
+          description: Unsupported file format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /documents/{document_id}/status:
+    get:
+      summary: Get document processing status
+      operationId: getDocumentStatus
+      tags:
+        - Documents
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Document status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentStatus'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /documents:
+    get:
+      summary: Get all documents for patient
+      operationId: getPatientDocuments
+      tags:
+        - Documents
+      parameters:
+        - name: patient_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: document_type
+          in: query
+          schema:
+            type: string
+            enum: [PRESCRIPTION, LAB_REPORT, DISCHARGE_SUMMARY, IMAGING, PROCEDURE_NOTE]
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Documents retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentListResponse'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  # ==================== TIMELINE ENDPOINTS ====================
+  /patients/{patient_id}/timeline:
+    get:
+      summary: Get patient health timeline
+      operationId: getPatientTimeline
+      tags:
+        - Timeline
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: event_types
+          in: query
+          description: Comma-separated list of event types to filter
+          schema:
+            type: string
+            example: medication,lab,appointment
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Timeline retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineResponse'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /patients/{patient_id}/timeline/{event_id}:
+    get:
+      summary: Get specific timeline event details
+      operationId: getTimelineEventDetails
+      tags:
+        - Timeline
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Event details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineEvent'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  # ==================== NOTIFICATION ENDPOINTS ====================
+  /notifications:
+    get:
+      summary: Get user notifications
+      operationId: getNotifications
+      tags:
+        - Notifications
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [reminder, alert, update, info]
+        - name: read
+          in: query
+          schema:
+            type: boolean
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Notifications retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /notifications/{notification_id}/mark-read:
+    post:
+      summary: Mark notification as read
+      operationId: markNotificationRead
+      tags:
+        - Notifications
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Notification marked as read
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /notifications/send-test:
+    post:
+      summary: Send test notification
+      operationId: sendTestNotification
+      tags:
+        - Notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - channel
+              properties:
+                channel:
+                  type: string
+                  enum: [EMAIL, SMS, IN_APP, PUSH]
+                message:
+                  type: string
+                  default: Test notification from MediFlow
+      responses:
+        "200":
+          description: Test notification sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [SENT, FAILED]
+                  notification_id:
+                    type: string
+                    format: uuid
+                  message:
+                    type: string
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # ==================== DOCTOR ENDPOINTS ====================
+  /doctors/{doctor_id}:
+    get:
+      summary: Get doctor profile
+      operationId: getDoctorProfile
+      tags:
+        - Doctors
+      parameters:
+        - name: doctor_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Doctor profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorProfile'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /doctors/{doctor_id}/patients:
+    get:
+      summary: Get doctor's patient list
+      operationId: getDoctorPatients
+      tags:
+        - Doctors
+      parameters:
+        - name: doctor_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Patient list retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patients:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DoctorPatient'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /doctors/{doctor_id}/patients/{patient_id}/summary:
+    get:
+      summary: Get pre-consultation patient summary
+      operationId: getPreConsultationSummary
+      tags:
+        - Doctors
+      parameters:
+        - name: doctor_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Pre-consultation summary retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreConsultationSummary'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  # ==================== ANALYTICS ENDPOINTS ====================
+  /patients/{patient_id}/analytics/health-summary:
+    get:
+      summary: Get patient health analytics summary
+      operationId: getHealthSummary
+      tags:
+        - Analytics
+      parameters:
+        - name: patient_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Health summary retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthSummary'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /analytics/population:
+    get:
+      summary: Get population health metrics
+      operationId: getPopulationAnalytics
+      tags:
+        - Analytics
+      parameters:
+        - name: hospital_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Population analytics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hospital_id:
+                    type: string
+                    format: uuid
+                  period:
+                    type: object
+                    properties:
+                      from_date:
+                        type: string
+                        format: date
+                      to_date:
+                        type: string
+                        format: date
+                  total_patients:
+                    type: integer
+                  metrics:
+                    type: object
+                    properties:
+                      average_medication_adherence:
+                        type: number
+                      appointment_attendance_rate:
+                        type: number
+                      hospital_readmission_rate:
+                        type: number
+                      average_length_of_stay_days:
+                        type: number
+                  disease_distribution:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        patient_count:
+                          type: integer
+                        percentage:
+                          type: number
+                        trend:
+                          type: string
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          $ref: '#/components/responses/ForbiddenError'
+
+  /analytics/operational:
+    get:
+      summary: Get operational metrics
+      operationId: getOperationalMetrics
+      tags:
+        - Analytics
+      responses:
+        "200":
+          description: Operational metrics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  operational_metrics:
+                    type: object
+                    properties:
+                      average_appointment_wait_time_days:
+                        type: number
+                      appointment_cancellation_rate:
+                        type: number
+                      average_appointment_duration_minutes:
+                        type: number
+                      document_processing_time_avg_seconds:
+                        type: number
+                      ocr_accuracy_rate:
+                        type: number
+                      system_uptime_percentage:
+                        type: number
+                  sla_metrics:
+                    type: object
+                    properties:
+                      appointment_scheduling_sla:
+                        type: number
+                      escalation_response_sla:
+                        type: number
+                      prescription_processing_sla:
+                        type: number
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          $ref: '#/components/responses/ForbiddenError'
+
+tags:
+  - name: Authentication
+    description: User authentication and token management
+  - name: Patients
+    description: Patient profile and medical information
+  - name: Medications
+    description: Medication management and safety
+  - name: Appointments
+    description: Appointment scheduling and management
+  - name: Documents
+    description: Medical document upload and OCR processing
+  - name: Timeline
+    description: Patient health timeline and events
+  - name: Notifications
+    description: User notifications and reminders
+  - name: Doctors
+    description: Doctor profiles and patient management
+  - name: Analytics
+    description: Analytics and reporting
