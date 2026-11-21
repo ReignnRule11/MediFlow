@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f7f9fc"><meta name="description" content="MediFlow — a patient-centred healthcare navigation demo.">
+<title>MediFlow — Care, connected</title>
+<style>
+:root{--ink:#17243b;--muted:#718096;--line:#e8edf3;--paper:#fff;--bg:#f5f7fb;--teal:#087f83;--teal2:#e7f5f3;--blue:#edf3ff;--red:#b94a53;--amber:#a66a16;--shadow:0 12px 32px rgba(28,48,78,.055)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button{font:inherit;cursor:pointer}.shell{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh}.side{background:#fff;border-right:1px solid var(--line);padding:26px 18px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:11px;padding:0 10px 30px;font-size:20px;font-weight:750;letter-spacing:-.6px}.mark{width:34px;height:34px;border-radius:11px;background:var(--teal);display:grid;place-items:center;color:white;font-weight:800}.navlabel{padding:14px 12px 8px;color:#9aa5b4;text-transform:uppercase;font-size:10px;font-weight:750;letter-spacing:1.1px}.nav{display:flex;align-items:center;gap:12px;padding:11px 12px;margin:2px 0;border-radius:9px;color:#637187;text-decoration:none;font-weight:550}.nav.active,.nav:hover{background:var(--teal2);color:var(--teal)}.nav .ico{width:18px;text-align:center;font-size:16px}.sidebottom{margin-top:auto;padding:16px 10px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.demo-pill{display:inline-flex;gap:6px;align-items:center;border:1px solid #d9e8e6;background:#f1faf8;color:#24736e;padding:5px 9px;border-radius:20px;font-size:10px;font-weight:750;letter-spacing:.5px}.main{min-width:0}.top{height:76px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 38px}.crumb{color:var(--muted);font-size:13px}.profile{display:flex;align-items:center;gap:10px}.avatar{width:35px;height:35px;border-radius:50%;background:#e7efff;color:#4263a0;display:grid;place-items:center;font-weight:750}.content{max-width:1400px;margin:auto;padding:34px 38px 55px}.welcome{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:26px}.eyebrow{color:var(--teal);font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase}.welcome h1{font-size:28px;letter-spacing:-.9px;margin:5px 0 4px}.welcome p{margin:0;color:var(--muted)}.date{color:var(--muted);font-size:12px;padding-top:8px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:18px}.card{background:var(--paper);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}.stat{padding:18px 19px}.stathead{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}.staticon{width:31px;height:31px;border-radius:9px;background:var(--blue);display:grid;place-items:center}.stat strong{display:block;font-size:26px;letter-spacing:-.8px;margin:9px 0 2px}.trend{font-size:11px;color:#27836f}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:18px;margin-bottom:18px}.panel{padding:21px}.panelhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:17px}.panel h2{font-size:15px;margin:0;letter-spacing:-.2px}.sub{color:var(--muted);font-size:11px;margin-top:3px}.linkbtn{border:0;background:none;color:var(--teal);font-size:12px;font-weight:700}.med{display:flex;align-items:center;gap:13px;padding:13px 0;border-top:1px solid #f0f2f6}.med:first-of-type{border-top:0}.medicon{width:38px;height:38px;border-radius:11px;background:#f0f5ff;display:grid;place-items:center;font-size:17px}.medinfo{flex:1;min-width:0}.medinfo b{display:block;font-size:13px}.medinfo small{color:var(--muted);font-size:11px}.status{font-size:10px;font-weight:750;border-radius:20px;padding:5px 9px;background:#eaf6ef;color:#347650}.status.warn{background:#fff4e4;color:#98601a}.alert{display:flex;gap:11px;padding:13px;border:1px solid #f4e5ca;background:#fffaf1;border-radius:10px;margin-top:11px}.alert .symbol{font-size:17px}.alert b{display:block;font-size:12px}.alert p{font-size:11px;color:#7f6a4d;margin:3px 0 0}.timeline{display:flex;gap:13px;padding:12px 0;border-top:1px solid #f0f2f6}.dot{width:9px;height:9px;border-radius:50%;background:#55a79b;margin:5px 3px 0}.timeline b{font-size:12px}.timeline small{display:block;color:var(--muted);font-size:11px}.bottomgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.appt{display:flex;align-items:center;gap:13px;padding:12px 0;border-top:1px solid #f0f2f6}.apptdate{background:#f0f5ff;border-radius:9px;padding:7px 10px;text-align:center;color:#45649a;font-weight:800;font-size:16px}.apptdate small{display:block;font-size:9px;letter-spacing:1px}.appt b{font-size:12px}.appt small{display:block;color:var(--muted);font-size:11px}.action{border:1px solid #dce6e8;background:#fff;color:var(--teal);padding:8px 12px;border-radius:8px;font-weight:700;font-size:11px}.action.primary{background:var(--teal);color:white;border-color:var(--teal)}.notice{font-size:11px;color:#718096;margin-top:22px;padding:13px 15px;background:#eef2f7;border-radius:9px}.toast{position:fixed;bottom:20px;right:20px;background:#173b42;color:white;padding:12px 17px;border-radius:9px;box-shadow:var(--shadow);display:none}.mobile{display:none}
+@media(max-width:1050px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.content{padding:28px 24px}.top{padding:0 24px}}
+@media(max-width:650px){.shell{grid-template-columns:1fr}.side{padding:12px 14px;border-right:0;border-bottom:1px solid var(--line);flex-direction:row;align-items:center;gap:8px;overflow:auto}.brand{padding:0 8px 0 0;font-size:17px}.brand .mark{width:30px;height:30px}.navlabel,.sidebottom{display:none}.nav{padding:8px 10px;white-space:nowrap;font-size:11px}.nav .ico{display:none}.top{height:56px;padding:0 17px}.content{padding:23px 16px 35px}.welcome h1{font-size:23px}.date{display:none}.stats{gap:10px}.stat{padding:14px}.stat strong{font-size:22px}.grid,.bottomgrid{grid-template-columns:1fr}.panel{padding:16px}.welcome{margin-bottom:19px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="side">
+<div class="brand"><span class="mark">M</span>MediFlow</div>
+<div class="navlabel">Workspace</div>
+<a class="nav active" href="#overview"><span class="ico">◫</span>Overview</a>
+<a class="nav" href="#medications"><span class="ico">✚</span>Medications</a>
+<a class="nav" href="#timeline"><span class="ico">◷</span>Health timeline</a>
+<a class="nav" href="#appointments"><span class="ico">▦</span>Appointments</a>
+<a class="nav" href="#care"><span class="ico">♡</span>Care team</a>
+<div class="sidebottom">Patient workspace<br><b>Illustrative demo data</b></div>
+</aside>
+<main class="main">
+<header class="top"><div class="crumb">Workspace <span class="muted">/</span> Patient overview</div><div class="profile"><span class="demo-pill">● DEMO ENVIRONMENT</span><div class="avatar">JD</div></div></header>
+<div class="content" id="overview">
+<div class="welcome"><div><div class="eyebrow">Patient dashboard</div><h1>Good morning, Jordan</h1><p>Your health information, brought together in one place.</p></div><div class="date">SATURDAY, NOVEMBER 21</div></div>
+<section class="stats">
+<div class="card stat"><div class="stathead">Active medications <span class="staticon">✚</span></div><strong>4</strong><span class="trend">All schedules up to date</span></div>
+<div class="card stat"><div class="stathead">Upcoming appointments <span class="staticon">▦</span></div><strong>2</strong><span class="muted" style="font-size:11px">Next visit in 3 days</span></div>
+<div class="card stat"><div class="stathead">Health documents <span class="staticon">▤</span></div><strong>8</strong><span class="muted" style="font-size:11px">Across 3 categories</span></div>
+<div class="card stat"><div class="stathead">Care updates <span class="staticon">♡</span></div><strong>3</strong><span class="trend">No urgent updates</span></div>
+</section>
+<section class="grid">
+<div class="card panel" id="medications"><div class="panelhead"><div><h2>Medication overview</h2><div class="sub">Your current medication schedule</div></div><button class="linkbtn" data-toast="Medication list is sample data in this demo.">View all →</button></div>
+<div class="med"><div class="medicon">💊</div><div class="medinfo"><b>Metformin</b><small>500 mg · Twice daily · With meals</small></div><span class="status">On schedule</span></div>
+<div class="med"><div class="medicon">💊</div><div class="medinfo"><b>Lisinopril</b><small>10 mg · Once daily · Morning</small></div><span class="status">On schedule</span></div>
+<div class="med"><div class="medicon">💊</div><div class="medinfo"><b>Vitamin D3</b><small>1,000 IU · Once daily</small></div><span class="status warn">Due today</span></div>
+<div class="med"><div class="medicon">💊</div><div class="medinfo"><b>Atorvastatin</b><small>20 mg · Once daily · Evening</small></div><span class="status">On schedule</span></div>
+</div>
+<div class="card panel"><div class="panelhead"><div><h2>Safety & care notices</h2><div class="sub">Illustrative reminders — not clinical advice</div></div><span class="status warn">2 notices</span></div>
+<div class="alert"><span class="symbol">⚑</span><div><b>Medication review reminder</b><p>Bring your current medication list to your next clinician visit.</p></div></div>
+<div class="alert"><span class="symbol">◷</span><div><b>Document needs review</b><p>A sample lab report is marked for clinician review.</p></div></div>
+</div>
+</section>
+<section class="grid">
+<div class="card panel" id="timeline"><div class="panelhead"><div><h2>Recent health timeline</h2><div class="sub">A chronological view of your care activity</div></div><button class="linkbtn" data-toast="Timeline is populated with illustrative events.">Full timeline →</button></div>
+<div class="timeline"><span class="dot"></span><div><b>Medication schedule updated</b><small>Today · 8:15 AM · Patient record</small></div></div>
+<div class="timeline"><span class="dot"></span><div><b>Lab report added</b><small>Yesterday · 2:40 PM · Documents</small></div></div>
+<div class="timeline"><span class="dot"></span><div><b>Primary care appointment confirmed</b><small>Nov 18 · 11:05 AM · Appointments</small></div></div>
+<div class="timeline"><span class="dot"></span><div><b>Medication list reviewed</b><small>Nov 15 · 9:30 AM · Care team</small></div></div>
+</div>
+<div class="card panel" id="appointments"><div class="panelhead"><div><h2>Upcoming appointments</h2><div class="sub">Your next scheduled visits</div></div><button class="action" data-toast="Appointment scheduling requires the full MediFlow service.">+ Request visit</button></div>
+<div class="appt"><div class="apptdate"><small>NOV</small>24</div><div><b>Primary care follow-up</b><small>Dr. Morgan Lee · 10:30 AM</small></div></div>
+<div class="appt"><div class="apptdate"><small>DEC</small>02</div><div><b>Routine blood work</b><small>Diagnostic centre · 8:00 AM</small></div></div>
+</div>
+</section>
+<section class="bottomgrid" id="care">
+<div class="card panel"><div class="panelhead"><div><h2>Your care team</h2><div class="sub">Connected healthcare professionals</div></div></div><div class="appt"><div class="avatar">ML</div><div><b>Dr. Morgan Lee</b><small>Primary care physician</small></div><span class="status">Primary</span></div><div class="appt"><div class="avatar">AR</div><div><b>Alex Rivera, PharmD</b><small>Clinical pharmacist</small></div><span class="status">Care team</span></div></div>
+<div class="card panel"><div class="panelhead"><div><h2>Health documents</h2><div class="sub">Records available in your workspace</div></div></div><div class="med"><div class="medicon">▤</div><div class="medinfo"><b>Laboratory results</b><small>3 documents · Last updated Nov 20</small></div><button class="action" data-toast="Document access is not connected in this static demo.">Open</button></div><div class="med"><div class="medicon">▤</div><div class="medinfo"><b>Visit summaries</b><small>5 documents · Last updated Nov 18</small></div><button class="action" data-toast="Document access is not connected in this static demo.">Open</button></div></div>
+</section>
+<div class="notice"><b>Prototype notice:</b> This GitHub Pages experience is a static product demonstration populated with fictional sample data. It is not connected to a live patient record, clinical decision support service, or MediFlow API. Medication notices are illustrative only and must not guide treatment decisions. The full application source and backend remain separate from this demo.</div>
+</div>
+</main>
+</div><div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(()=>{const toast=document.getElementById('toast');let timer;document.querySelectorAll('[data-toast]').forEach(el=>el.addEventListener('click',()=>{toast.textContent=el.dataset.toast;toast.style.display='block';clearTimeout(timer);timer=setTimeout(()=>toast.style.display='none',3200)}));document.querySelectorAll('.nav').forEach(link=>link.addEventListener('click',()=>{document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));link.classList.add('active')}));})();
+</script>
+</body></html>
